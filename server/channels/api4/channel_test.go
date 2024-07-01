@@ -3294,6 +3294,36 @@ func TestAddChannelMember(t *testing.T) {
 	})
 }
 
+func TestAddChannelMembers(t *testing.T) {
+	th := Setup(t).InitBasic()
+	defer th.TearDown()
+	client := th.Client
+	user := th.BasicUser
+	user2 := th.BasicUser2
+	team := th.BasicTeam
+	publicChannel := th.CreatePublicChannel()
+	privateChannel := th.CreatePrivateChannel()
+
+	user3 := th.CreateUserWithClient(th.SystemAdminClient)
+	_, _, err := th.SystemAdminClient.AddTeamMember(context.Background(), team.Id, user3.Id)
+	require.NoError(t, err)
+
+	cm, resp, err := client.AddChannelMembers(context.Background(), publicChannel.Id, "", []string{user.Id, user2.Id, user3.Id})
+	require.NoError(t, err)
+	CheckCreatedStatus(t, resp)
+	require.Equal(t, publicChannel.Id, cm[0].ChannelId, "should have returned exact channel")
+	require.Equal(t, user.Id, cm[0].UserId, "should have returned exact user added to public channel")
+	require.Equal(t, user2.Id, cm[1].UserId, "should have returned exact user added to public channel")
+	require.Equal(t, user3.Id, cm[2].UserId, "should have returned exact user added to public channel")
+
+	cm, _, err = client.AddChannelMembers(context.Background(), privateChannel.Id, "", []string{user.Id, user2.Id, user3.Id})
+	require.NoError(t, err)
+	require.Equal(t, privateChannel.Id, cm[0].ChannelId, "should have returned exact channel")
+	require.Equal(t, user.Id, cm[0].UserId, "should have returned exact user added to public channel")
+	require.Equal(t, user2.Id, cm[1].UserId, "should have returned exact user added to public channel")
+	require.Equal(t, user3.Id, cm[2].UserId, "should have returned exact user added to public channel")
+}
+
 func TestAddChannelMemberFromThread(t *testing.T) {
 	t.Skip("MM-41285")
 	th := Setup(t).InitBasic()
@@ -4784,6 +4814,13 @@ func TestGetChannelsMemberCount(t *testing.T) {
 		_, _, err := client.GetChannelsMemberCount(context.Background(), channelIDs)
 		require.NoError(t, err)
 	})
+
+	t.Run("Should fail for private channels that the user is not a member of", func(t *testing.T) {
+		th.LoginBasic2()
+		channelIDs := []string{channel2.Id}
+		_, _, err := client.GetChannelsMemberCount(context.Background(), channelIDs)
+		require.Error(t, err)
+	})
 }
 
 func TestMoveChannel(t *testing.T) {
@@ -4799,6 +4836,29 @@ func TestMoveChannel(t *testing.T) {
 		ch, _, err := th.SystemAdminClient.MoveChannel(context.Background(), publicChannel.Id, team2.Id, false)
 		require.NoError(t, err)
 		require.Equal(t, team2.Id, ch.TeamId)
+	})
+
+	t.Run("Should return custom error with repeated channel", func(t *testing.T) {
+		channelT1 := &model.Channel{
+			DisplayName: "repeated",
+			Name:        "repeated",
+			Type:        model.ChannelTypePrivate,
+			TeamId:      team1.Id,
+		}
+		channelT1, _, err := th.Client.CreateChannel(context.TODO(), channelT1)
+		require.NoError(t, err)
+
+		channelT2 := &model.Channel{
+			DisplayName: "repeated",
+			Name:        "repeated",
+			Type:        model.ChannelTypePrivate,
+			TeamId:      team2.Id,
+		}
+		_, _, err = th.Client.CreateChannel(context.TODO(), channelT2)
+		require.NoError(t, err)
+
+		_, _, err = th.SystemAdminClient.MoveChannel(context.Background(), channelT1.Id, team2.Id, false)
+		require.EqualError(t, err, "A channel with that name already exists on the same team.")
 	})
 
 	t.Run("Should move private channel", func(t *testing.T) {
