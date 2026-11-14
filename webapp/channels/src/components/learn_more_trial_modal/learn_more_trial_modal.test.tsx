@@ -1,31 +1,17 @@
 // Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
 
-import {shallow} from 'enzyme';
 import React from 'react';
-import {Provider} from 'react-redux';
 
-import {GenericModal} from '@mattermost/components';
-
-import Carousel from 'components/common/carousel/carousel';
 import LearnMoreTrialModal from 'components/learn_more_trial_modal/learn_more_trial_modal';
 
-import {mountWithIntl} from 'tests/helpers/intl-test-helper';
-import mockStore from 'tests/test_store';
+import {renderWithContext, screen, userEvent, waitFor} from 'tests/react_testing_utils';
 
-jest.mock('actions/telemetry_actions.jsx', () => {
-    const original = jest.requireActual('actions/telemetry_actions.jsx');
-    return {
-        ...original,
-        trackEvent: jest.fn(),
-    };
-});
+jest.mock('components/common/hooks/useOpenStartTrialFormModal', () => ({
+    __esModule: true,
+    default: () => jest.fn(),
+}));
 
-const CloudStartTrialButton = () => {
-    return (<button>{'Start Cloud Trial'}</button>);
-};
-
-jest.mock('components/cloud_start_trial/cloud_start_trial_btn', () => CloudStartTrialButton);
 describe('components/learn_more_trial_modal/learn_more_trial_modal', () => {
     // required state to mount using the provider
     const state = {
@@ -50,14 +36,11 @@ describe('components/learn_more_trial_modal/learn_more_trial_modal', () => {
             general: {
                 license: {
                     IsLicensed: 'false',
-                    Cloud: 'true',
+                    Cloud: 'false',
                 },
                 config: {
                     DiagnosticsEnabled: 'false',
                 },
-            },
-            cloud: {
-                subscription: {id: 'subscription'},
             },
         },
         views: {
@@ -75,115 +58,78 @@ describe('components/learn_more_trial_modal/learn_more_trial_modal', () => {
         onExited: jest.fn(),
     };
 
-    const store = mockStore(state);
-
-    test('should match snapshot', () => {
-        const wrapper = shallow(
-            <Provider store={store}>
-                <LearnMoreTrialModal {...props}/>
-            </Provider>,
-        );
-        expect(wrapper).toMatchSnapshot();
-    });
-
     test('should show the learn more about trial modal carousel slides', () => {
-        const wrapper = mountWithIntl(
-            <Provider store={store}>
-                <LearnMoreTrialModal {...props}/>
-            </Provider>,
+        renderWithContext(
+            <LearnMoreTrialModal {...props}/>,
+            state,
         );
-        expect(wrapper.find('LearnMoreTrialModal').find('Carousel')).toHaveLength(1);
+        expect(document.querySelector('#learnMoreTrialModalCarousel')).not.toBeNull();
     });
 
-    test('should call on close', () => {
+    test('should call on close', async () => {
         const mockOnClose = jest.fn();
 
-        const wrapper = mountWithIntl(
-            <Provider store={store}>
-                <LearnMoreTrialModal
-                    {...props}
-                    onClose={mockOnClose}
-                />
-            </Provider>,
+        renderWithContext(
+            <LearnMoreTrialModal
+                {...props}
+                onClose={mockOnClose}
+            />,
+            state,
         );
 
-        wrapper.find(GenericModal).props().onExited();
+        await userEvent.click(screen.getByLabelText('Close'));
 
-        expect(mockOnClose).toHaveBeenCalled();
+        await waitFor(() => {
+            expect(mockOnClose).toHaveBeenCalled();
+        });
     });
 
-    test('should call on exited', () => {
+    test('should call on exited', async () => {
         const mockOnExited = jest.fn();
 
-        const wrapper = mountWithIntl(
-            <Provider store={store}>
-                <LearnMoreTrialModal
-                    {...props}
-                    onExited={mockOnExited}
-                />
-            </Provider>,
+        renderWithContext(
+            <LearnMoreTrialModal
+                {...props}
+                onExited={mockOnExited}
+            />,
+            state,
         );
 
-        wrapper.find(GenericModal).props().onExited();
+        await userEvent.click(screen.getByLabelText('Close'));
 
-        expect(mockOnExited).toHaveBeenCalled();
+        await waitFor(() => {
+            expect(mockOnExited).toHaveBeenCalled();
+        });
     });
 
-    test('should move the slides when clicking carousel next and prev buttons', () => {
-        const wrapper = mountWithIntl(
-            <Provider store={store}>
-                <LearnMoreTrialModal
-                    {...props}
-                />
-            </Provider>,
+    test('should move the slides when clicking carousel next and prev buttons', async () => {
+        renderWithContext(
+            <LearnMoreTrialModal
+                {...props}
+            />,
+            state,
         );
 
         // validate the value of the first slide
-        let activeSlide = wrapper.find(Carousel).find('.slide.active-anim');
-        let activeSlideId = activeSlide.find('LearnMoreTrialModalStep').props().id;
+        expect(document.querySelector('.slide.active-anim #learnMoreTrialModalStep-useSso')).not.toBeNull();
 
-        expect(activeSlideId).toBe('useSso');
-
-        const nextButton = wrapper.find(Carousel).find('CarouselButton div.chevron-right');
-        const prevButton = wrapper.find(Carousel).find('CarouselButton div.chevron-left');
+        const nextButton = document.querySelector('.chevron-right')!;
+        const prevButton = document.querySelector('.chevron-left')!;
 
         // move to the second slide
-        nextButton.simulate('click');
+        await userEvent.click(nextButton);
 
-        activeSlide = wrapper.find(Carousel).find('.slide.active-anim');
-        activeSlideId = activeSlide.find('LearnMoreTrialModalStep').props().id;
-
-        expect(activeSlideId).toBe('ldap');
+        expect(document.querySelector('.slide.active-anim #learnMoreTrialModalStep-ldap')).not.toBeNull();
 
         // move to the third slide
-        nextButton.simulate('click');
+        await userEvent.click(nextButton);
 
-        activeSlide = wrapper.find(Carousel).find('.slide.active-anim');
-        activeSlideId = activeSlide.find('LearnMoreTrialModalStep').props().id;
-
-        expect(activeSlideId).toBe('systemConsole');
+        expect(document.querySelector('.slide.active-anim #learnMoreTrialModalStep-systemConsole')).not.toBeNull();
 
         // move back to the second slide
-        prevButton.simulate('click');
+        await userEvent.click(prevButton);
 
-        activeSlide = wrapper.find(Carousel).find('.slide.active-anim');
-        activeSlideId = activeSlide.find('LearnMoreTrialModalStep').props().id;
-
-        expect(activeSlideId).toBe('ldap');
-    });
-
-    test('should have the start cloud trial button when is cloud workspace and cloud free is enabled', () => {
-        const wrapper = mountWithIntl(
-            <Provider store={store}>
-                <LearnMoreTrialModal
-                    {...props}
-                />
-            </Provider>,
-        );
-
-        const trialButton = wrapper.find('CloudStartTrialButton');
-
-        expect(trialButton).toHaveLength(1);
+        expect(document.querySelector('.slide.active-anim #learnMoreTrialModalStep-ldap')).not.toBeNull();
     });
 
     test('should have the self hosted request trial button cloud free is disabled', () => {
@@ -200,22 +146,15 @@ describe('components/learn_more_trial_modal/learn_more_trial_modal', () => {
                 },
             },
         };
-        const nonCloudStore = mockStore(nonCloudState);
 
-        const wrapper = mountWithIntl(
-            <Provider store={nonCloudStore}>
-                <LearnMoreTrialModal
-                    {...props}
-                />
-            </Provider>,
+        renderWithContext(
+            <LearnMoreTrialModal
+                {...props}
+            />,
+            nonCloudState,
         );
 
         // validate the cloud start trial button is not present
-        const trialButton = wrapper.find('CloudStartTrialButton');
-        expect(trialButton).toHaveLength(0);
-
-        // validate the cloud start trial button is not present
-        const selfHostedRequestTrialButton = wrapper.find('StartTrialBtn');
-        expect(selfHostedRequestTrialButton).toHaveLength(1);
+        expect(document.querySelector('#start_trial_btn')).not.toBeNull();
     });
 });

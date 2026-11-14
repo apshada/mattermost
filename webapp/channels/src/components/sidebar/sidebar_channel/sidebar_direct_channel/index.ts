@@ -20,13 +20,13 @@ import SidebarDirectChannel from './sidebar_direct_channel';
 type OwnProps = {
     channel: Channel;
     currentTeamName: string;
-}
+};
 
 function mapStateToProps(state: GlobalState, ownProps: OwnProps) {
     const teammate = getUser(state, ownProps.channel.teammate_id!);
     const currentUser = getCurrentUser(state);
     const currentTeam = getCurrentTeam(state);
-    const redirectChannel = getRedirectChannelNameForTeam(state, currentTeam.id);
+    const redirectChannel = currentTeam ? getRedirectChannelNameForTeam(state, currentTeam.id) : '';
     const currentChannelId = getCurrentChannelId(state);
     const active = ownProps.channel.id === currentChannelId;
 

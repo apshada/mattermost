@@ -1,8 +1,6 @@
 // Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
 
-import type {Address, CloudCustomerPatch} from '@mattermost/types/cloud';
-
 import {CloudTypes} from 'mattermost-redux/action_types';
 import {Client4} from 'mattermost-redux/client';
 
@@ -33,39 +31,5 @@ export function getCloudCustomer() {
         onSuccess: [CloudTypes.RECEIVED_CLOUD_CUSTOMER],
         onFailure: CloudTypes.CLOUD_CUSTOMER_FAILED,
         onRequest: CloudTypes.CLOUD_CUSTOMER_REQUEST,
-    });
-}
-
-export function getLicenseSelfServeStatus() {
-    return bindClientFunc({
-        clientFunc: Client4.getLicenseSelfServeStatus,
-        onRequest: CloudTypes.LICENSE_SELF_SERVE_STATS_REQUEST,
-        onSuccess: [CloudTypes.RECEIVED_LICENSE_SELF_SERVE_STATS],
-        onFailure: CloudTypes.LICENSE_SELF_SERVE_STATS_FAILED,
-    });
-}
-
-export function getInvoices() {
-    return bindClientFunc({
-        clientFunc: Client4.getInvoices,
-        onSuccess: [CloudTypes.RECEIVED_CLOUD_INVOICES],
-        onFailure: CloudTypes.CLOUD_INVOICES_FAILED,
-        onRequest: CloudTypes.CLOUD_INVOICES_REQUEST,
-    });
-}
-
-export function updateCloudCustomer(customerPatch: CloudCustomerPatch) {
-    return bindClientFunc({
-        clientFunc: Client4.updateCloudCustomer,
-        onSuccess: [CloudTypes.RECEIVED_CLOUD_CUSTOMER],
-        params: [customerPatch],
-    });
-}
-
-export function updateCloudCustomerAddress(address: Address) {
-    return bindClientFunc({
-        clientFunc: Client4.updateCloudCustomerAddress,
-        onSuccess: [CloudTypes.RECEIVED_CLOUD_CUSTOMER],
-        params: [address],
     });
 }

@@ -1,8 +1,8 @@
 // Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
 
+import type {ConnectedProps} from 'react-redux';
 import {connect} from 'react-redux';
-import {withRouter} from 'react-router-dom';
 import {bindActionCreators} from 'redux';
 import type {Dispatch} from 'redux';
 
@@ -10,15 +10,20 @@ import {
     updateChannelNotifyProps,
 } from 'mattermost-redux/actions/channels';
 import {getCustomEmojisInText} from 'mattermost-redux/actions/emojis';
+import {fetchChannelRemotes} from 'mattermost-redux/actions/shared_channels';
 import {General} from 'mattermost-redux/constants';
 import {
+    canManageChannelJoinRequests,
     getCurrentChannel,
     getMyCurrentChannelMembership,
     isCurrentChannelMuted,
     getCurrentChannelStats,
+    isMyChannelAutotranslated,
+    getPendingJoinRequestsCount,
 } from 'mattermost-redux/selectors/entities/channels';
 import {getConfig} from 'mattermost-redux/selectors/entities/general';
-import {getCurrentRelativeTeamUrl, getCurrentTeamId, getMyTeams} from 'mattermost-redux/selectors/entities/teams';
+import {getRemoteNamesForChannel} from 'mattermost-redux/selectors/entities/shared_channels';
+import {getCurrentTeam} from 'mattermost-redux/selectors/entities/teams';
 import {
     displayLastActiveLabel,
     getCurrentUser,
@@ -29,28 +34,21 @@ import {
 } from 'mattermost-redux/selectors/entities/users';
 import {getUserIdFromChannelName} from 'mattermost-redux/utils/channel_utils';
 
-import {goToLastViewedChannel} from 'actions/views/channel';
-import {openModal, closeModal} from 'actions/views/modals';
 import {
     showPinnedPosts,
     showChannelFiles,
     closeRightHandSide,
     showChannelMembers,
 } from 'actions/views/rhs';
-import {getIsRhsOpen, getRhsState} from 'selectors/rhs';
-import {getAnnouncementBarCount} from 'selectors/views/announcement_bar';
+import {getRhsState} from 'selectors/rhs';
 import {makeGetCustomStatus, isCustomStatusEnabled, isCustomStatusExpired} from 'selectors/views/custom_status';
-import {isModalOpen} from 'selectors/views/modals';
 
-import {ModalIdentifiers} from 'utils/constants';
-import {isFileAttachmentsEnabled} from 'utils/file_utils';
+import {getChannelKind} from 'utils/channel_kind';
+import {canSearchFiles} from 'utils/file_utils';
 
 import type {GlobalState} from 'types/store';
 
 import ChannelHeader from './channel_header';
-
-const EMPTY_CHANNEL = {};
-const EMPTY_CHANNEL_STATS = {member_count: 0, guest_count: 0, pinnedpost_count: 0, files_count: 0};
 
 function makeMapStateToProps() {
     const doGetProfilesInChannel = makeGetProfilesInChannel();
@@ -58,16 +56,14 @@ function makeMapStateToProps() {
     let timestampUnits: string[] = [];
 
     return function mapStateToProps(state: GlobalState) {
-        const channel = getCurrentChannel(state) || EMPTY_CHANNEL;
+        const channel = getCurrentChannel(state);
         const user = getCurrentUser(state);
-        const teams = getMyTeams(state);
-        const hasMoreThanOneTeam = teams.length > 1;
         const config = getConfig(state);
-
         let dmUser;
         let gmMembers;
         let customStatus;
         let lastActivityTimestamp;
+        let remoteNames: string[] = [];
 
         if (channel && channel.type === General.DM_CHANNEL) {
             const dmUserId = getUserIdFromChannelName(user.id, channel.name);
@@ -77,7 +73,12 @@ function makeMapStateToProps() {
         } else if (channel && channel.type === General.GM_CHANNEL) {
             gmMembers = doGetProfilesInChannel(state, channel.id);
         }
-        const stats = getCurrentChannelStats(state) || EMPTY_CHANNEL_STATS;
+
+        if (channel?.shared) {
+            remoteNames = getRemoteNamesForChannel(state, channel.id);
+        }
+
+        const stats = getCurrentChannelStats(state);
 
         let isLastActiveEnabled = false;
         if (dmUser) {
@@ -85,32 +86,37 @@ function makeMapStateToProps() {
             timestampUnits = getLastActiveTimestampUnits(state, dmUser.id);
         }
 
+        const canManageJoinRequests = canManageChannelJoinRequests(state, channel);
+        const hasPendingJoinRequests = Boolean(
+            canManageJoinRequests &&
+            channel &&
+            getPendingJoinRequestsCount(state, channel.id) > 0,
+        );
+
         return {
-            teamId: getCurrentTeamId(state),
+            team: getCurrentTeam(state),
             channel,
             channelMember: getMyCurrentChannelMembership(state),
-            memberCount: stats.member_count,
+            memberCount: stats?.member_count || 0,
             currentUser: user,
             dmUser,
             gmMembers,
+            remoteNames,
             rhsState: getRhsState(state),
-            rhsOpen: getIsRhsOpen(state),
-            isReadOnly: false,
-            isMuted: isCurrentChannelMuted(state),
-            isQuickSwitcherOpen: isModalOpen(state, ModalIdentifiers.QUICK_SWITCH),
-            hasGuests: stats.guest_count > 0,
-            pinnedPostsCount: stats.pinnedpost_count,
-            hasMoreThanOneTeam,
-            currentRelativeTeamUrl: getCurrentRelativeTeamUrl(state),
-            announcementBarCount: getAnnouncementBarCount(state),
+            isChannelMuted: isCurrentChannelMuted(state),
+            hasGuests: stats ? stats.guest_count > 0 : false,
+            pinnedPostsCount: stats?.pinnedpost_count || 0,
             customStatus,
             isCustomStatusEnabled: isCustomStatusEnabled(state),
             isCustomStatusExpired: isCustomStatusExpired(state, customStatus),
             lastActivityTimestamp,
-            isFileAttachmentsEnabled: isFileAttachmentsEnabled(config),
+            canSearchFiles: canSearchFiles(config),
             isLastActiveEnabled,
             timestampUnits,
             hideGuestTags: config.HideGuestTags === 'true',
+            isChannelAutotranslated: channel ? isMyChannelAutotranslated(state, channel.id) : false,
+            hasPendingJoinRequests,
+            channelKind: getChannelKind(state, channel),
         };
     };
 }
@@ -122,11 +128,13 @@ const mapDispatchToProps = (dispatch: Dispatch) => ({
         closeRightHandSide,
         getCustomEmojisInText,
         updateChannelNotifyProps,
-        goToLastViewedChannel,
-        openModal,
-        closeModal,
         showChannelMembers,
+        fetchChannelRemotes,
     }, dispatch),
 });
 
-export default withRouter<any, any>(connect(makeMapStateToProps, mapDispatchToProps)(ChannelHeader));
+const connector = connect(makeMapStateToProps, mapDispatchToProps);
+
+export type PropsFromRedux = ConnectedProps<typeof connector>;
+
+export default connector(ChannelHeader);

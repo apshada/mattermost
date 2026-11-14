@@ -1,25 +1,29 @@
 // Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
 
+import {Draggable} from '@hello-pangea/dnd';
 import classNames from 'classnames';
-import React, {useCallback, useMemo} from 'react';
-import {Draggable} from 'react-beautiful-dnd';
+import React, {useCallback, useMemo, type JSX} from 'react';
 import {defineMessages, useIntl} from 'react-intl';
 import {Link} from 'react-router-dom';
 
-import {mark, trackEvent} from 'actions/telemetry_actions.jsx';
+import {ShortcutKeys} from '@mattermost/shared/components/shortcut_key';
+import {WithTooltip} from '@mattermost/shared/components/tooltip';
 
-import CopyUrlContextMenu from 'components/copy_url_context_menu';
+import {mark} from 'actions/telemetry_actions';
+
 import TeamIcon from 'components/widgets/team_icon/team_icon';
-import WithTooltip from 'components/with_tooltip';
-import {ShortcutKeys} from 'components/with_tooltip/shortcut';
 
-import {isDesktopApp} from 'utils/user_agent';
+import {Mark} from 'utils/performance_telemetry';
 
 const messages = defineMessages({
     nameUndefined: {
         id: 'team.button.name_undefined',
         defaultMessage: 'This team does not have a name',
+    },
+    urgentMentionTooltip: {
+        id: 'channel_mention_badge.urgent_tooltip',
+        defaultMessage: 'You have an urgent mention',
     },
 });
 
@@ -62,13 +66,9 @@ export default function TeamButton({
     const {formatMessage} = useIntl();
 
     const handleSwitch = useCallback((e: React.MouseEvent) => {
-        mark('TeamLink#click');
         e.preventDefault();
+        mark(Mark.TeamLinkClicked);
         switchTeam(url);
-
-        setTimeout(() => {
-            trackEvent('ui', 'ui_team_sidebar_switch_team');
-        }, 0);
     }, [switchTeam, url]);
 
     let teamClass: string = otherProps.active ? 'active' : '';
@@ -89,23 +89,37 @@ export default function TeamButton({
             teamClass = 'unread';
 
             badge = (
-                <span className={'unread-badge'}/>
+                <span
+                    data-testid={'team-badge-' + teamId}
+                    className={'unread-badge'}
+                />
             );
         } else if (isNotCreateTeamButton) {
             teamClass = '';
         } else {
             teamClass = 'special';
         }
-        ariaLabel = formatMessage({
-            id: 'team.button.unread.ariaLabel',
-            defaultMessage: '{teamName} team unread',
-        },
-        {
-            teamName: displayName,
-        });
 
-        if (mentions) {
+        // Only update ariaLabel for actual team buttons with unread status, not for create/join team buttons
+        if (unread && isNotCreateTeamButton && !otherProps.isInProduct) {
             ariaLabel = formatMessage({
+                id: 'team.button.unread.ariaLabel',
+                defaultMessage: '{teamName} team unread',
+            },
+            {
+                teamName: displayName,
+            });
+        }
+
+        if (mentions && isNotCreateTeamButton) {
+            ariaLabel = otherProps.hasUrgent ? formatMessage({
+                id: 'team.button.mentions.urgent.ariaLabel',
+                defaultMessage: '{teamName} team, {mentionCount} mentions, including an urgent mention',
+            },
+            {
+                teamName: displayName,
+                mentionCount: mentions,
+            }) : formatMessage({
                 id: 'team.button.mentions.ariaLabel',
                 defaultMessage: '{teamName} team, {mentionCount} mentions',
             },
@@ -114,9 +128,20 @@ export default function TeamButton({
                 mentionCount: mentions,
             });
 
-            badge = (
-                <span className={classNames('badge badge-max-number pull-right small', {urgent: otherProps.hasUrgent})}>{mentions > 99 ? '99+' : mentions}</span>
+            const mentionBadge = (
+                <span
+                    data-testid={'team-badge-' + teamId}
+                    className={classNames('badge badge-max-number pull-right small', {urgent: otherProps.hasUrgent})}
+                >
+                    {mentions > 99 ? '99+' : mentions}
+                </span>
             );
+
+            badge = otherProps.hasUrgent ? (
+                <WithTooltip title={messages.urgentMentionTooltip}>
+                    {mentionBadge}
+                </WithTooltip>
+            ) : mentionBadge;
         }
     }
 
@@ -146,7 +171,6 @@ export default function TeamButton({
         <WithTeamTooltip
             order={order}
             tip={tip}
-            url={url}
         >
             <div className={'team-btn ' + btnClass}>
                 {!otherProps.isInProduct && badge}
@@ -155,30 +179,16 @@ export default function TeamButton({
         </WithTeamTooltip>
     );
 
-    let teamButton = (
+    const teamButton = (
         <Link
             id={`${url.slice(1)}TeamButton`}
-            aria-label={ariaLabel}
+            aria-label={isNotCreateTeamButton ? ariaLabel : displayName}
             to={url}
             onClick={handleSwitch}
         >
             {btn}
         </Link>
     );
-
-    if (isDesktopApp()) {
-        // if this is not a "special" team button, give it a context menu
-        if (isNotCreateTeamButton) {
-            teamButton = (
-                <CopyUrlContextMenu
-                    link={url}
-                    menuId={url}
-                >
-                    {teamButton}
-                </CopyUrlContextMenu>
-            );
-        }
-    }
 
     return isDraggable ? (
         <Draggable
@@ -187,25 +197,29 @@ export default function TeamButton({
         >
             {(provided, snapshot) => {
                 return (
-                    <div
-                        className='draggable-team-container'
+                    <Link
+                        to={url}
+                        id={`${url.slice(1)}TeamButton`}
+                        aria-label={ariaLabel}
+                        onClick={handleSwitch}
+                        className='draggable-team-container inline-block'
                         ref={provided.innerRef}
                         {...provided.draggableProps}
                         {...provided.dragHandleProps}
-                        tabIndex={-1}
                     >
                         <div
                             className={classNames([`team-container ${teamClass}`, {isDragging: snapshot.isDragging}])}
                         >
-                            {teamButton}
+                            {btn}
                             {orderIndicator}
                         </div>
-                    </div>
+                    </Link>
                 );
             }}
         </Draggable>
     ) : (
         <div
+            data-testid={'team-container-' + teamId}
             className={`team-container ${teamClass}`}
         >
             {teamButton}
@@ -217,9 +231,8 @@ export default function TeamButton({
 function WithTeamTooltip({
     order,
     tip,
-    url,
     children,
-}: React.PropsWithChildren<Pick<Props, 'order' | 'tip' | 'url'>>) {
+}: React.PropsWithChildren<Pick<Props, 'order' | 'tip'>>) {
     const intl = useIntl();
 
     const shortcut = useMemo(() => {
@@ -233,12 +246,14 @@ function WithTeamTooltip({
         };
     }, [order]);
 
+    if (!React.isValidElement(children)) {
+        return null;
+    }
+
     return (
         <WithTooltip
-            id={`tooltip-${url}`}
             title={tip || intl.formatMessage(messages.nameUndefined)}
             shortcut={shortcut}
-            placement='right'
         >
             {children}
         </WithTooltip>

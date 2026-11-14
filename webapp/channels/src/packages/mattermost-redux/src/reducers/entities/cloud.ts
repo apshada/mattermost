@@ -1,16 +1,14 @@
 // Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
 
-import type {AnyAction} from 'redux';
 import {combineReducers} from 'redux';
 
-import {SelfHostedSignupProgress} from '@mattermost/types/cloud';
-import type {Product, Subscription, CloudCustomer, Invoice, Limits, LicenseSelfServeStatusReducer} from '@mattermost/types/cloud';
-import type {ValueOf} from '@mattermost/types/utilities';
+import type {Product, Subscription, CloudCustomer, Limits} from '@mattermost/types/cloud';
 
+import type {MMReduxAction} from 'mattermost-redux/action_types';
 import {CloudTypes} from 'mattermost-redux/action_types';
 
-export function subscription(state: Subscription | null = null, action: AnyAction) {
+export function subscription(state: Subscription | null = null, action: MMReduxAction) {
     switch (action.type) {
     case CloudTypes.RECEIVED_CLOUD_SUBSCRIPTION: {
         return action.data;
@@ -20,7 +18,7 @@ export function subscription(state: Subscription | null = null, action: AnyActio
     }
 }
 
-function customer(state: CloudCustomer | null = null, action: AnyAction) {
+function customer(state: CloudCustomer | null = null, action: MMReduxAction) {
     switch (action.type) {
     case CloudTypes.RECEIVED_CLOUD_CUSTOMER: {
         return action.data;
@@ -30,32 +28,7 @@ function customer(state: CloudCustomer | null = null, action: AnyAction) {
     }
 }
 
-export function subscriptionStats(state: LicenseSelfServeStatusReducer | null = null, action: AnyAction): LicenseSelfServeStatusReducer | null {
-    switch (action.type) {
-    case CloudTypes.LICENSE_SELF_SERVE_STATS_REQUEST: {
-        return {
-            getRequestState: 'LOADING',
-            ...action.data,
-        };
-    }
-    case CloudTypes.RECEIVED_LICENSE_SELF_SERVE_STATS: {
-        return {
-            getRequestState: 'OK',
-            is_expandable: action.data,
-        };
-    }
-    case CloudTypes.LICENSE_SELF_SERVE_STATS_FAILED: {
-        return {
-            getRequestState: 'ERROR',
-            is_expandable: false,
-        };
-    }
-    default:
-        return state;
-    }
-}
-
-function products(state: Record<string, Product> | null = null, action: AnyAction) {
+function products(state: Record<string, Product> | null = null, action: MMReduxAction) {
     switch (action.type) {
     case CloudTypes.RECEIVED_CLOUD_PRODUCTS: {
         const productList: Product[] = action.data;
@@ -73,33 +46,17 @@ function products(state: Record<string, Product> | null = null, action: AnyActio
     }
 }
 
-function invoices(state: Record<string, Invoice> | null = null, action: AnyAction) {
-    switch (action.type) {
-    case CloudTypes.RECEIVED_CLOUD_INVOICES: {
-        const invoiceList: Invoice[] = action.data;
-        const invoiceDict = invoiceList.reduce((map, obj) => {
-            map[obj.id] = obj;
-            return map;
-        }, {} as Record<string, Invoice>);
-        return {
-            ...state,
-            ...invoiceDict,
-        };
-    }
-    default:
-        return state;
-    }
-}
-
 export interface LimitsReducer {
     limits: Limits;
     limitsLoaded: boolean;
 }
+
 const emptyLimits = {
     limits: {},
     limitsLoaded: false,
 };
-export function limits(state: LimitsReducer = emptyLimits, action: AnyAction) {
+
+export function limits(state: LimitsReducer = emptyLimits, action: MMReduxAction) {
     switch (action.type) {
     case CloudTypes.RECEIVED_CLOUD_LIMITS: {
         return {
@@ -114,16 +71,16 @@ export function limits(state: LimitsReducer = emptyLimits, action: AnyAction) {
         return state;
     }
 }
+
 export interface ErrorsReducer {
     subscription?: true;
     products?: true;
     customer?: true;
-    invoices?: true;
     limits?: true;
     trueUpReview?: true;
 }
 const emptyErrors = {};
-export function errors(state: ErrorsReducer = emptyErrors, action: AnyAction) {
+export function errors(state: ErrorsReducer = emptyErrors, action: MMReduxAction) {
     switch (action.type) {
     case CloudTypes.CLOUD_SUBSCRIPTION_FAILED: {
         return {...state, subscription: true};
@@ -133,9 +90,6 @@ export function errors(state: ErrorsReducer = emptyErrors, action: AnyAction) {
     }
     case CloudTypes.CLOUD_CUSTOMER_FAILED: {
         return {...state, customer: true};
-    }
-    case CloudTypes.CLOUD_INVOICES_FAILED: {
-        return {...state, invoices: true};
     }
     case CloudTypes.CLOUD_LIMITS_FAILED: {
         return {...state, limits: true};
@@ -154,11 +108,6 @@ export function errors(state: ErrorsReducer = emptyErrors, action: AnyAction) {
     case CloudTypes.RECEIVED_CLOUD_CUSTOMER: {
         const newState = Object.assign({}, state);
         delete newState.customer;
-        return newState;
-    }
-    case CloudTypes.RECEIVED_CLOUD_INVOICES: {
-        const newState = Object.assign({}, state);
-        delete newState.invoices;
         return newState;
     }
     case CloudTypes.RECEIVED_CLOUD_LIMITS: {
@@ -182,11 +131,6 @@ export function errors(state: ErrorsReducer = emptyErrors, action: AnyAction) {
         delete newState.customer;
         return newState;
     }
-    case CloudTypes.CLOUD_INVOICES_REQUEST: {
-        const newState = Object.assign({}, state);
-        delete newState.invoices;
-        return newState;
-    }
     case CloudTypes.CLOUD_LIMITS_REQUEST: {
         const newState = Object.assign({}, state);
         delete newState.limits;
@@ -198,25 +142,6 @@ export function errors(state: ErrorsReducer = emptyErrors, action: AnyAction) {
     }
     }
 }
-
-interface SelfHostedSignupReducer {
-    progress: ValueOf<typeof SelfHostedSignupProgress>;
-}
-const initialSelfHostedSignup = {
-    progress: SelfHostedSignupProgress.START,
-};
-function selfHostedSignup(state: SelfHostedSignupReducer = initialSelfHostedSignup, action: AnyAction): SelfHostedSignupReducer {
-    switch (action.type) {
-    case CloudTypes.RECEIVED_SELF_HOSTED_SIGNUP_PROGRESS:
-        return {
-            ...state,
-            progress: action.data,
-        };
-    default:
-        return state;
-    }
-}
-
 export default combineReducers({
 
     // represents the current cloud customer
@@ -228,18 +153,9 @@ export default combineReducers({
     // represents the cloud products offered
     products,
 
-    // represents the invoices tied to the current subscription
-    invoices,
-
     // represents the usage limits associated with this workspace
     limits,
 
     // network errors, used to show errors in ui instead of blowing up and showing nothing
     errors,
-
-    // Subscription expansion status
-    subscriptionStats,
-
-    // state related to self-hosted workspaces purchasing a license not tied to a customer-web-server user.
-    selfHostedSignup,
 });

@@ -2,14 +2,11 @@
 // See LICENSE.txt for license information.
 
 import type {AllowedIPRange} from './config';
-import type {ValueOf} from './utilities';
 
 export type CloudState = {
     subscription?: Subscription;
     products?: Record<string, Product>;
     customer?: CloudCustomer;
-    invoices?: Record<string, Invoice>;
-    subscriptionStats?: LicenseSelfServeStatusReducer;
     limits: {
         limitsLoaded: boolean;
         limits: Limits;
@@ -18,20 +15,16 @@ export type CloudState = {
         subscription?: true;
         products?: true;
         customer?: true;
-        invoices?: true;
         limits?: true;
         trueUpReview?: true;
     };
-    selfHostedSignup: {
-        progress: ValueOf<typeof SelfHostedSignupProgress>;
-    };
-}
+};
 
 export type Installation = {
     id: string;
     state: string;
     allowed_ip_ranges: AllowedIPRange[];
-}
+};
 
 export type Subscription = {
     id: string;
@@ -52,7 +45,8 @@ export type Subscription = {
     cancel_at?: number;
     will_renew?: string;
     simulated_current_time_ms?: number;
-}
+    is_cloud_preview?: boolean;
+};
 
 export type Product = {
     id: string;
@@ -74,27 +68,6 @@ export type AddOn = {
     price_per_seat: number;
 };
 
-export const TypePurchases = {
-    firstSelfHostLicensePurchase: 'first_purchase',
-    renewalSelfHost: 'renewal_self',
-    monthlySubscription: 'monthly_subscription',
-    annualSubscription: 'annual_subscription',
-} as const;
-
-export const SelfHostedSignupProgress = {
-    START: 'START',
-    CREATED_CUSTOMER: 'CREATED_CUSTOMER',
-    CREATED_INTENT: 'CREATED_INTENT',
-    CONFIRMED_INTENT: 'CONFIRMED_INTENT',
-    CREATED_SUBSCRIPTION: 'CREATED_SUBSCRIPTION',
-    PAID: 'PAID',
-    CREATED_LICENSE: 'CREATED_LICENSE',
-} as const;
-
-export type MetadataGatherWireTransferKeys = `${ValueOf<typeof TypePurchases>}_alt_payment_method`
-
-export type CustomerMetadataGatherWireTransfer = Partial<Record<MetadataGatherWireTransferKeys, string>>
-
 // Customer model represents a customer on the system.
 export type CloudCustomer = {
     id: string;
@@ -108,17 +81,7 @@ export type CloudCustomer = {
     billing_address: Address;
     company_address: Address;
     payment_method: PaymentMethod;
-} & CustomerMetadataGatherWireTransfer
-
-export type LicenseSelfServeStatus = {
-    is_expandable?: boolean;
-    is_renewable?: boolean;
-}
-
-type RequestState = 'IDLE' | 'LOADING' | 'ERROR' | 'OK'
-export interface LicenseSelfServeStatusReducer extends LicenseSelfServeStatus {
-    getRequestState: RequestState;
-}
+};
 
 // CustomerPatch model represents a customer patch on the system.
 export type CloudCustomerPatch = {
@@ -127,7 +90,7 @@ export type CloudCustomerPatch = {
     num_employees?: number;
     contact_first_name?: string;
     contact_last_name?: string;
-} & CustomerMetadataGatherWireTransfer
+};
 
 // Address model represents a customer's address.
 export type Address = {
@@ -137,7 +100,7 @@ export type Address = {
     line2: string;
     postal_code: string;
     state: string;
-}
+};
 
 // PaymentMethod represents methods of payment for a customer.
 export type PaymentMethod = {
@@ -147,13 +110,13 @@ export type PaymentMethod = {
     exp_year: number;
     card_brand: string;
     name: string;
-}
+};
 
 export type NotifyAdminRequest = {
     trial_notification: boolean;
     required_plan: string;
     required_feature: string;
-}
+};
 
 // Invoice model represents a invoice on the system.
 export type Invoice = {
@@ -169,7 +132,7 @@ export type Invoice = {
     subscription_id: string;
     line_items: InvoiceLineItem[];
     current_product_name: string;
-}
+};
 
 // actual string values come from customer-web-server and should be kept in sync with values seen there
 export const InvoiceLineItemType = {
@@ -190,7 +153,7 @@ export type InvoiceLineItem = {
     metadata: Record<string, string>;
     period_start: number;
     period_end: number;
-}
+};
 
 export type Limits = {
     messages?: {
@@ -202,7 +165,7 @@ export type Limits = {
     teams?: {
         active?: number;
     };
-}
+};
 
 export interface CloudUsage {
     files: {
@@ -220,23 +183,11 @@ export type TeamsUsage = {
     active: number;
     cloudArchived: number;
     teamsLoaded: boolean;
-}
+};
 
 export type ValidBusinessEmail = {
     is_valid: boolean;
-}
-
-export interface CreateSubscriptionRequest {
-    product_id: string;
-    add_ons: string[];
-    seats: number;
-    internal_purchase_order?: string;
-}
-
-export interface NewsletterRequestBody {
-    email: string;
-    subscribed_content: string;
-}
+};
 
 export const areShippingDetailsValid = (address: Address | null | undefined): boolean => {
     if (!address) {
@@ -247,9 +198,19 @@ export const areShippingDetailsValid = (address: Address | null | undefined): bo
 export type Feedback = {
     reason: string;
     comments: string;
-}
+};
 
-export type WorkspaceDeletionRequest = {
-    subscription_id: string;
-    delete_feedback: Feedback;
-}
+export type MessageDescriptor = {
+    id: string;
+    defaultMessage: string;
+    values?: Record<string, any>;
+};
+
+export type PreviewModalContentData = {
+    skuLabel: MessageDescriptor;
+    title: MessageDescriptor;
+    subtitle: MessageDescriptor;
+    videoUrl: string;
+    videoPoster?: string;
+    useCase: string;
+};

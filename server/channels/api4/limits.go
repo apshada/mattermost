@@ -13,22 +13,36 @@ import (
 )
 
 func (api *API) InitLimits() {
-	api.BaseRoutes.Limits.Handle("/users", api.APISessionRequired(getUserLimits)).Methods("GET")
+	api.BaseRoutes.Limits.Handle("/server", api.APISessionRequired(getServerLimits)).Methods(http.MethodGet)
 }
 
-func getUserLimits(c *Context, w http.ResponseWriter, r *http.Request) {
-	if !(c.IsSystemAdmin() && c.App.SessionHasPermissionTo(*c.AppContext.Session(), model.PermissionSysconsoleReadUserManagementUsers)) {
-		c.SetPermissionError(model.PermissionSysconsoleReadUserManagementUsers)
-		return
-	}
+func getServerLimits(c *Context, w http.ResponseWriter, r *http.Request) {
+	isAdmin := c.IsSystemAdmin() && c.App.SessionHasPermissionTo(*c.AppContext.Session(), model.PermissionSysconsoleReadUserManagementUsers)
 
-	userLimits, err := c.App.GetUserLimits()
+	// Only admins receive (and need) the user/guest counts, so only compute them for
+	// admins. This keeps the expensive count queries off the per-login/per-refresh hot
+	// path that non-admin clients hit via loadMe()/loadConfigAndMe().
+	serverLimits, err := c.App.GetServerLimits(isAdmin)
 	if err != nil {
 		c.Err = err
 		return
 	}
 
-	if err := json.NewEncoder(w).Encode(userLimits); err != nil {
-		c.Logger.Error("Error writing user limits response", mlog.Err(err))
+	// Non-admin users only get message history limit information, no user count data
+	if !isAdmin {
+		limitedData := &model.ServerLimits{
+			MaxUsersLimit:           0,
+			MaxUsersHardLimit:       0,
+			ActiveUserCount:         0,
+			SingleChannelGuestCount: 0,
+			SingleChannelGuestLimit: 0,
+			LastAccessiblePostTime:  serverLimits.LastAccessiblePostTime,
+			PostHistoryLimit:        serverLimits.PostHistoryLimit,
+		}
+		serverLimits = limitedData
+	}
+
+	if err := json.NewEncoder(w).Encode(serverLimits); err != nil {
+		c.Logger.Warn("Error writing server limits response", mlog.Err(err))
 	}
 }

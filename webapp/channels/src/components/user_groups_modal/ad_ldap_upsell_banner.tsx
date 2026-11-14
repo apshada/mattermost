@@ -2,10 +2,11 @@
 // See LICENSE.txt for license information.
 
 import moment from 'moment';
-import React, {memo, useEffect, useState} from 'react';
+import React, {memo, useEffect, useState, type JSX} from 'react';
 import {useIntl} from 'react-intl';
 import {useDispatch, useSelector} from 'react-redux';
 
+import {Button} from '@mattermost/compass-ui/components/button';
 import type {GlobalState} from '@mattermost/types/store';
 
 import {getPrevTrialLicense} from 'mattermost-redux/actions/admin';
@@ -14,7 +15,6 @@ import {getLicense} from 'mattermost-redux/selectors/entities/general';
 import {getCurrentUser} from 'mattermost-redux/selectors/entities/users';
 import {isAdmin} from 'mattermost-redux/utils/user_utils';
 
-import CloudStartTrialButton from 'components/cloud_start_trial/cloud_start_trial_btn';
 import useOpenSalesLink from 'components/common/hooks/useOpenSalesLink';
 import StartTrialBtn from 'components/learn_more_trial_modal/start_trial_btn';
 
@@ -89,34 +89,23 @@ function ADLDAPUpsellBanner() {
         return null;
     }
 
-    let btn = (
+    let btn: JSX.Element | null = (
         <StartTrialBtn
-            btnClass='ad-ldap-banner-btn'
-            message={formatMessage({id: 'adldap_upsell_banner.trial_btn', defaultMessage: 'Start trial'})}
-            telemetryId={'start_self-hosted_trial_from_adldap_upsell_banner'}
-            renderAsButton={true}
+            className='ad-ldap-banner-btn'
+            emphasis='link'
             onClick={() => setConfirmed(true)}
         />);
 
-    if (isCloud) {
+    if (prevTrialed || isCloud) {
         btn = (
-            <CloudStartTrialButton
-                extraClass='ad-ldap-banner-btn'
-                message={formatMessage({id: 'adldap_upsell_banner.trial_btn', defaultMessage: 'Start trial'})}
-                telemetryId={'start_cloud_trial_from_adldap_upsell_banner'}
-                onClick={() => setConfirmed(true)}
-            />
-        );
-    }
-
-    if (prevTrialed) {
-        btn = (
-            <button
+            <Button
+                type='button'
+                emphasis='link'
                 className='ad-ldap-banner-btn'
                 onClick={openSalesLink}
             >
                 {formatMessage({id: 'adldap_upsell_banner.sales_btn', defaultMessage: 'Contact sales to use'})}
-            </button>
+            </Button>
         );
     }
 
@@ -133,7 +122,7 @@ function ADLDAPUpsellBanner() {
                 {btn}
                 <button
                     type='button'
-                    aria-label='Close'
+                    aria-label={formatMessage({id: 'generic.close', defaultMessage: 'Close'})}
                     className='banner-close'
                     onClick={() => setShow(false)}
                 >

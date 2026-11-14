@@ -10,6 +10,7 @@ import type {Dispatch} from 'redux';
 import {getCurrentChannel} from 'mattermost-redux/selectors/entities/channels';
 import {getCurrentTeam} from 'mattermost-redux/selectors/entities/teams';
 
+import {loadPostAttributeFields} from 'actions/post_attributes';
 import {setRhsExpanded, showChannelInfo, showPinnedPosts, showChannelFiles, openRHSSearch, closeRightHandSide, openAtPrevious, updateSearchTerms} from 'actions/views/rhs';
 import {selectCurrentProductId} from 'selectors/products';
 import {
@@ -20,7 +21,6 @@ import {
     getSelectedPostId,
     getSelectedPostCardId,
     getPreviousRhsState,
-    getIsRhsSuppressed,
 } from 'selectors/rhs';
 
 import {RHSStates} from 'utils/constants';
@@ -42,7 +42,6 @@ function mapStateToProps(state: GlobalState, props: RouteComponentProps) {
     return {
         isExpanded: getIsRhsExpanded(state),
         isOpen: getIsRhsOpen(state),
-        isSuppressed: getIsRhsSuppressed(state),
         channel,
         postRightVisible: Boolean(selectedPostId) && rhsState !== RHSStates.EDIT_HISTORY,
         postCardVisible: Boolean(selectedPostCardId),
@@ -54,6 +53,8 @@ function mapStateToProps(state: GlobalState, props: RouteComponentProps) {
         isChannelMembers: rhsState === RHSStates.CHANNEL_MEMBERS,
         isPluginView: rhsState === RHSStates.PLUGIN,
         isPostEditHistory: rhsState === RHSStates.EDIT_HISTORY,
+        isRecentMentions: rhsState === RHSStates.MENTION,
+        isSavedPosts: rhsState === RHSStates.FLAG,
         rhsChannel: getSelectedChannel(state),
         selectedPostId,
         selectedPostCardId,
@@ -74,6 +75,7 @@ function mapDispatchToProps(dispatch: Dispatch) {
             updateSearchTerms,
             showChannelFiles,
             showChannelInfo,
+            loadPostAttributeFields,
         }, dispatch),
     };
 }

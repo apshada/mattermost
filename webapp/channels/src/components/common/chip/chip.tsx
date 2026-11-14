@@ -1,7 +1,8 @@
 // Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
 
-import React from 'react';
+import React, {useCallback} from 'react';
+import type {MessageDescriptor} from 'react-intl';
 import {FormattedMessage} from 'react-intl';
 import styled from 'styled-components';
 
@@ -11,18 +12,17 @@ import RenderEmoji from 'components/emoji/render_emoji';
 
 type Props = {
     onClick?: () => void;
-    id?: string;
-    defaultMessage?: string;
+    display?: MessageDescriptor;
     values?: Record<string, any>;
     className?: string;
 
     // for the "other" option unlike the others, e.g. free-form response
     otherOption?: boolean;
     leadingIcon?: string;
-    additionalMarkup?: React.ReactNode | React.ReactNodeArray;
-}
+    additionalMarkup?: React.ReactNode | readonly React.ReactNode[];
+};
 
-const StyledChip = styled.button<{ otherOption?: boolean }>`
+const StyledChip = styled.button<{otherOption?: boolean}>`
     display: flex;
     flex-shrink: 0;
     align-items: center;
@@ -52,34 +52,43 @@ const StyledChip = styled.button<{ otherOption?: boolean }>`
     }
 `;
 
-export default class Chip extends React.PureComponent<Props> {
-    onClick = (e: React.MouseEvent) => {
-        e.preventDefault();
-        this.props.onClick?.();
-    };
+const emojiStyles = {marginRight: '11px'};
 
-    render() {
-        return (
-            <StyledChip
-                onClick={this.onClick}
-                otherOption={this.props.otherOption}
-                className={this.props.className || ''}
-            >
-                {this.props.leadingIcon && (
-                    <RenderEmoji
-                        emojiName={this.props.leadingIcon}
-                        emojiStyle={{marginRight: '11px'}}
-                    />
-                )}
-                {(this.props.id && this.props.defaultMessage && this.props.values) && (
-                    <FormattedMessage
-                        id={this.props.id}
-                        defaultMessage={this.props.defaultMessage}
-                        values={this.props.values}
-                    />
-                )}
-                {this.props.additionalMarkup}
-            </StyledChip>
-        );
-    }
-}
+const Chip = ({
+    onClick,
+    otherOption,
+    className,
+    leadingIcon,
+    display,
+    values,
+    additionalMarkup,
+}: Props) => {
+    const handleClick = useCallback((e: React.MouseEvent) => {
+        e.preventDefault();
+        onClick?.();
+    }, [onClick]);
+
+    return (
+        <StyledChip
+            onClick={handleClick}
+            otherOption={otherOption}
+            className={className || ''}
+        >
+            {leadingIcon && (
+                <RenderEmoji
+                    emojiName={leadingIcon}
+                    emojiStyle={emojiStyles}
+                />
+            )}
+            {(display && values) && (
+                <FormattedMessage
+                    {...display}
+                    values={values}
+                />
+            )}
+            {additionalMarkup}
+        </StyledChip>
+    );
+};
+
+export default Chip;

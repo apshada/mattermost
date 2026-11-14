@@ -1,29 +1,18 @@
 // Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
 
-import {mount, shallow} from 'enzyme';
 import React from 'react';
 import type {ComponentProps} from 'react';
 
 import * as fileActions from 'mattermost-redux/actions/files';
 
-import OverlayTrigger from 'components/overlay_trigger';
-import Tooltip from 'components/tooltip';
+import LocalStorageStore from 'stores/local_storage_store';
 
+import {renderWithContext, screen, userEvent} from 'tests/react_testing_utils';
 import {TestHelper} from 'utils/test_helper';
 import * as Utils from 'utils/utils';
 
-import type {GlobalState} from 'types/store';
-
 import FilePreviewModalMainActions from './file_preview_modal_main_actions';
-
-const mockDispatch = jest.fn();
-let mockState: GlobalState;
-jest.mock('react-redux', () => ({
-    ...jest.requireActual('react-redux') as typeof import('react-redux'),
-    useSelector: (selector: (state: typeof mockState) => unknown) => selector(mockState),
-    useDispatch: () => mockDispatch,
-}));
 
 describe('components/file_preview_modal/file_preview_modal_main_actions/FilePreviewModalMainActions', () => {
     let defaultProps: ComponentProps<typeof FilePreviewModalMainActions>;
@@ -39,85 +28,83 @@ describe('components/file_preview_modal/file_preview_modal_main_actions/FilePrev
             content: 'test content',
             canCopyContent: false,
         };
-
-        mockState = {
-            entities: {
-                general: {config: {}},
-                users: {profiles: {}},
-                channels: {channels: {}},
-                preferences: {
-                    myPreferences: {
-
-                    },
-                },
-                files: {
-                    filePublicLink: {link: 'http://example.com/img.png'},
-                },
-            },
-        } as GlobalState;
     });
 
-    test('should match snapshot with public links disabled', () => {
+    test('should render with public links disabled', () => {
         const props = {
             ...defaultProps,
             enablePublicLink: false,
         };
 
-        const wrapper = shallow(<FilePreviewModalMainActions {...props}/>);
-        expect(wrapper).toMatchSnapshot();
+        renderWithContext(
+            <FilePreviewModalMainActions {...props}/>,
+        );
+
+        expect(screen.queryByLabelText('Get a public link')).not.toBeInTheDocument();
     });
 
-    test('should match snapshot with public links enabled', () => {
+    test('should render with public links enabled', () => {
         const props = {
             ...defaultProps,
             enablePublicLink: true,
         };
 
-        const wrapper = shallow(<FilePreviewModalMainActions {...props}/>);
-        expect(wrapper).toMatchSnapshot();
-        const overlayWrapper = wrapper.find(OverlayTrigger).first();
-        expect(overlayWrapper.prop('overlay').type).toEqual(Tooltip);
-        expect(overlayWrapper.prop('children')).toMatchSnapshot();
+        renderWithContext(
+            <FilePreviewModalMainActions {...props}/>,
+        );
+
+        expect(screen.queryByLabelText('Get a public link')).toBeInTheDocument();
     });
 
-    test('should match snapshot for external image with public links enabled', () => {
+    test('should not show public link button for external image with public links enabled', () => {
         const props = {
             ...defaultProps,
             enablePublicLink: true,
             showPublicLink: false,
         };
 
-        const wrapper = shallow(<FilePreviewModalMainActions {...props}/>);
-        expect(wrapper).toMatchSnapshot();
+        renderWithContext(
+            <FilePreviewModalMainActions {...props}/>,
+        );
+
+        expect(screen.queryByLabelText('Get a public link')).not.toBeInTheDocument();
     });
 
-    test('should match snapshot when copy content is enabled', () => {
+    test('should show copy button when copy content is enabled', () => {
         const props = {
             ...defaultProps,
             canCopyContent: true,
         };
 
-        const wrapper = shallow(<FilePreviewModalMainActions {...props}/>);
-        expect(wrapper).toMatchSnapshot();
+        renderWithContext(
+            <FilePreviewModalMainActions {...props}/>,
+        );
+
+        expect(screen.getByLabelText('Copy code')).toBeInTheDocument();
     });
 
-    test('should call public link callback', () => {
+    test('should call public link callback', async () => {
         const spy = jest.spyOn(Utils, 'copyToClipboard');
         const props = {
             ...defaultProps,
             enablePublicLink: true,
         };
-        const wrapper = shallow(<FilePreviewModalMainActions {...props}/>);
-        expect(wrapper.find(OverlayTrigger)).toHaveLength(3);
-        const overlayWrapper = wrapper.find(OverlayTrigger).first().children('a');
+        renderWithContext(
+            <FilePreviewModalMainActions {...props}/>,
+        );
+
         expect(spy).toHaveBeenCalledTimes(0);
-        overlayWrapper.simulate('click');
+
+        await userEvent.click(screen.getByLabelText('Get a public link'));
+
         expect(spy).toHaveBeenCalledTimes(1);
     });
 
     test('should not get public api when public links is disabled', async () => {
         const spy = jest.spyOn(fileActions, 'getFilePublicLink');
-        mount(<FilePreviewModalMainActions {...defaultProps}/>);
+        renderWithContext(
+            <FilePreviewModalMainActions {...defaultProps}/>,
+        );
         expect(spy).toHaveBeenCalledTimes(0);
     });
 
@@ -127,7 +114,9 @@ describe('components/file_preview_modal/file_preview_modal_main_actions/FilePrev
             ...defaultProps,
             enablePublicLink: true,
         };
-        mount(<FilePreviewModalMainActions {...props}/>);
+        renderWithContext(
+            <FilePreviewModalMainActions {...props}/>,
+        );
         expect(spy).toHaveBeenCalledTimes(1);
     });
 
@@ -137,9 +126,60 @@ describe('components/file_preview_modal/file_preview_modal_main_actions/FilePrev
             ...defaultProps,
             canCopyContent: true,
         };
-        const wrapper = mount(<FilePreviewModalMainActions {...props}/>);
+        renderWithContext(
+            <FilePreviewModalMainActions {...props}/>,
+        );
         expect(spy).toHaveBeenCalledTimes(0);
-        wrapper.find('.icon-content-copy').simulate('click');
+        await userEvent.click(screen.getByLabelText('Copy code'));
         expect(spy).toHaveBeenCalledTimes(1);
+    });
+
+    describe('markdown toggle', () => {
+        beforeEach(() => {
+            localStorage.clear();
+        });
+
+        test('should not show the toggle by default', () => {
+            renderWithContext(<FilePreviewModalMainActions {...defaultProps}/>);
+
+            expect(screen.queryByRole('group', {name: 'Markdown view'})).not.toBeInTheDocument();
+        });
+
+        test('should reflect the stored view', () => {
+            renderWithContext(
+                <FilePreviewModalMainActions
+                    {...defaultProps}
+                    showMarkdownToggle={true}
+                />,
+            );
+
+            expect(screen.getByRole('button', {name: 'Preview'})).toHaveAttribute('aria-pressed', 'true');
+        });
+
+        test('should store the selected view', async () => {
+            renderWithContext(
+                <FilePreviewModalMainActions
+                    {...defaultProps}
+                    showMarkdownToggle={true}
+                />,
+            );
+
+            await userEvent.click(screen.getByRole('button', {name: 'Code'}));
+
+            expect(screen.getByRole('button', {name: 'Code'})).toHaveAttribute('aria-pressed', 'true');
+            expect(LocalStorageStore.getMarkdownView('file_preview', '', 'rendered')).toBe('raw');
+        });
+
+        test('should hide the toggle when only the close button is shown', () => {
+            renderWithContext(
+                <FilePreviewModalMainActions
+                    {...defaultProps}
+                    showOnlyClose={true}
+                    showMarkdownToggle={true}
+                />,
+            );
+
+            expect(screen.queryByRole('group', {name: 'Markdown view'})).not.toBeInTheDocument();
+        });
     });
 });

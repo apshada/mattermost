@@ -5,14 +5,12 @@ import {connect} from 'react-redux';
 import {bindActionCreators} from 'redux';
 import type {Dispatch} from 'redux';
 
-import type {TeamMembership} from '@mattermost/types/teams';
 import type {UserProfile} from '@mattermost/types/users';
-import type {RelationOneToOne} from '@mattermost/types/utilities';
 
 import {getTeamStats, getTeamMembersByIds} from 'mattermost-redux/actions/teams';
 import {getProfilesNotInChannel, getProfilesInChannel, searchProfiles} from 'mattermost-redux/actions/users';
 import {Permissions} from 'mattermost-redux/constants';
-import {getRecentProfilesFromDMs} from 'mattermost-redux/selectors/entities/channels';
+import {getRecentProfilesFromDMs, getChannel} from 'mattermost-redux/selectors/entities/channels';
 import {getConfig, getLicense} from 'mattermost-redux/selectors/entities/general';
 import {makeGetAllAssociatedGroupsForReference} from 'mattermost-redux/selectors/entities/groups';
 import {getTeammateNameDisplaySetting, isCustomGroupsEnabled} from 'mattermost-redux/selectors/entities/preferences';
@@ -25,6 +23,8 @@ import {loadStatusesForProfilesList} from 'actions/status_actions';
 import {searchAssociatedGroupsForReference} from 'actions/views/group';
 import {closeModal} from 'actions/views/modals';
 
+import {isMembershipPolicyEnforced} from 'utils/channel_utils';
+
 import type {GlobalState} from 'types/store';
 
 import ChannelInviteModal from './channel_invite_modal';
@@ -32,7 +32,7 @@ import ChannelInviteModal from './channel_invite_modal';
 type OwnProps = {
     channelId?: string;
     teamId?: string;
-}
+};
 
 function makeMapStateToProps(initialState: GlobalState, initialProps: OwnProps) {
     const getAllAssociatedGroupsForReference = makeGetAllAssociatedGroupsForReference();
@@ -47,12 +47,25 @@ function makeMapStateToProps(initialState: GlobalState, initialProps: OwnProps) 
     }
 
     return (state: GlobalState, props: OwnProps) => {
+        // Only channels whose policy controls membership pivot the invite
+        // picker to "ABAC mode" (cleared Redux profiles, fresh API fetches).
+        // Permission-only policies — e.g. an upload_file_attachment policy
+        // — keep policy_enforced=true but must NOT empty the picker.
+        const channel = props.channelId ? getChannel(state, props.channelId) : null;
+        const isAbacChannel = isMembershipPolicyEnforced(channel);
+
         let profilesNotInCurrentChannel: UserProfile[];
         let profilesInCurrentChannel: UserProfile[];
         let profilesNotInCurrentTeam: UserProfile[];
-        let membersInTeam: RelationOneToOne<UserProfile, TeamMembership>;
+        let membersInTeam;
 
-        if (props.channelId && props.teamId) {
+        if (isAbacChannel) {
+            // For ABAC channels, return empty arrays to force component to use fresh API data
+            profilesNotInCurrentChannel = [];
+            profilesInCurrentChannel = [];
+            profilesNotInCurrentTeam = [];
+            membersInTeam = props.teamId ? getMembersInTeam(state, props.teamId) : getMembersInCurrentTeam(state);
+        } else if (props.channelId && props.teamId) {
             profilesNotInCurrentChannel = doGetProfilesNotInChannel(state, props.channelId);
             profilesInCurrentChannel = doGetProfilesInChannel(state, props.channelId);
             profilesNotInCurrentTeam = getProfilesNotInTeam(state, props.teamId);
@@ -63,7 +76,9 @@ function makeMapStateToProps(initialState: GlobalState, initialProps: OwnProps) 
             profilesNotInCurrentTeam = getProfilesNotInCurrentTeam(state);
             membersInTeam = getMembersInCurrentTeam(state);
         }
-        const profilesFromRecentDMs = getRecentProfilesFromDMs(state);
+
+        // For ABAC channels, also return empty DM profiles to avoid contamination
+        const profilesFromRecentDMs = isAbacChannel ? [] : getRecentProfilesFromDMs(state);
         const config = getConfig(state);
         const license = getLicense(state);
 
@@ -72,7 +87,7 @@ function makeMapStateToProps(initialState: GlobalState, initialProps: OwnProps) 
         const guestAccountsEnabled = config.EnableGuestAccounts === 'true';
         const emailInvitationsEnabled = config.EnableEmailInvitations === 'true';
         const isLicensed = license && license.IsLicensed === 'true';
-        const isGroupConstrained = Boolean(currentTeam.group_constrained);
+        const isGroupConstrained = Boolean(currentTeam?.group_constrained);
         const canInviteGuests = !isGroupConstrained && isLicensed && guestAccountsEnabled && haveICurrentTeamPermission(state, Permissions.INVITE_GUEST);
         const enableCustomUserGroups = isCustomGroupsEnabled(state);
 

@@ -31,12 +31,6 @@ type SearchTestHelper struct {
 }
 
 func (th *SearchTestHelper) SetupBasicFixtures() error {
-	// Remove users from previous tests
-	err := th.cleanAllUsers()
-	if err != nil {
-		return err
-	}
-
 	// Create teams
 	team, err := th.createTeam("searchtest-team", "Searchtest team", model.TeamOpen)
 	if err != nil {
@@ -140,7 +134,7 @@ func (th *SearchTestHelper) CleanFixtures() error {
 		return err
 	}
 
-	err = th.cleanAllUsers()
+	err = th.cleanAllUsers([]*model.User{th.User, th.User2, th.UserAnotherTeam})
 	if err != nil {
 		return err
 	}
@@ -171,7 +165,7 @@ func (th *SearchTestHelper) makeEmail() string {
 func (th *SearchTestHelper) createUser(username, nickname, firstName, lastName string) (*model.User, error) {
 	return th.Store.User().Save(th.Context, &model.User{
 		Username:  username,
-		Password:  username,
+		Password:  model.NewTestPassword(),
 		Nickname:  nickname,
 		FirstName: firstName,
 		LastName:  lastName,
@@ -182,7 +176,7 @@ func (th *SearchTestHelper) createUser(username, nickname, firstName, lastName s
 func (th *SearchTestHelper) createGuest(username, nickname, firstName, lastName string) (*model.User, error) {
 	return th.Store.User().Save(th.Context, &model.User{
 		Username:  username,
-		Password:  username,
+		Password:  model.NewTestPassword(),
 		Nickname:  nickname,
 		FirstName: firstName,
 		LastName:  lastName,
@@ -192,22 +186,17 @@ func (th *SearchTestHelper) createGuest(username, nickname, firstName, lastName 
 }
 
 func (th *SearchTestHelper) deleteUser(user *model.User) error {
-	return th.Store.User().PermanentDelete(user.Id)
+	return th.Store.User().PermanentDelete(th.Context, user.Id)
 }
 
 func (th *SearchTestHelper) deleteBotUser(botID string) error {
 	if err := th.deleteBot(botID); err != nil {
 		return err
 	}
-	return th.Store.User().PermanentDelete(botID)
+	return th.Store.User().PermanentDelete(th.Context, botID)
 }
 
-func (th *SearchTestHelper) cleanAllUsers() error {
-	users, err := th.Store.User().GetAll()
-	if err != nil {
-		return err
-	}
-
+func (th *SearchTestHelper) cleanAllUsers(users []*model.User) error {
 	for _, u := range users {
 		err := th.deleteUser(u)
 		if err != nil {
@@ -233,7 +222,7 @@ func (th *SearchTestHelper) createBot(username, displayName, ownerID string) (*m
 	botModel.UserId = user.Id
 	bot, err := th.Store.Bot().Save(botModel)
 	if err != nil {
-		th.Store.User().PermanentDelete(bot.UserId)
+		th.Store.User().PermanentDelete(th.Context, bot.UserId)
 		return nil, errors.New(err.Error())
 	}
 

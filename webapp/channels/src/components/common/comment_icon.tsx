@@ -1,78 +1,65 @@
 // Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
 
+import classNames from 'classnames';
 import React from 'react';
-import {FormattedMessage} from 'react-intl';
+import {useIntl} from 'react-intl';
 
-import OverlayTrigger from 'components/overlay_trigger';
-import Tooltip from 'components/tooltip';
-import ReplyIcon from 'components/widgets/icons/reply_icon';
+import {ReplyOutlineIcon} from '@mattermost/compass-icons/components';
+import {Icon} from '@mattermost/compass-ui/components/icon';
+import {IconButton} from '@mattermost/compass-ui/components/icon-button';
+import {WithTooltip} from '@mattermost/shared/components/tooltip';
 
 import type {Locations} from 'utils/constants';
-import {localizeMessage} from 'utils/utils';
 
 type Props = {
-    location: keyof typeof Locations;
-    handleCommentClick: React.EventHandler<React.MouseEvent>;
-    searchStyle: string;
-    commentCount: number;
+    location?: keyof typeof Locations;
+    handleCommentClick?: React.EventHandler<React.MouseEvent>;
+    searchStyle?: string;
+    commentCount?: number;
     postId?: string;
     extraClass: string;
-}
+};
 
-export default class CommentIcon extends React.PureComponent<Props> {
-    public static defaultProps: Partial<Props> = {
-        location: 'CENTER',
-        searchStyle: '',
-        commentCount: 0,
-        extraClass: '',
-    };
+const CommentIcon = ({
+    location = 'CENTER',
+    searchStyle = '',
+    commentCount = 0,
+    extraClass = '',
+    handleCommentClick,
+    postId,
+}: Props) => {
+    const intl = useIntl();
 
-    public render(): JSX.Element {
-        let commentCountSpan: JSX.Element | null = null;
-        let iconStyle = 'post-menu__item post-menu__item--wide';
-        if (this.props.commentCount > 0) {
-            iconStyle += ' post-menu__item--show';
-            commentCountSpan = (
-                <span className='post-menu__comment-count'>
-                    {this.props.commentCount}
-                </span>
-            );
-        } else if (this.props.searchStyle !== '') {
-            iconStyle = iconStyle + ' ' + this.props.searchStyle;
-        }
+    const replyTitle = intl.formatMessage({
+        id: 'post_info.comment_icon.tooltip.reply',
+        defaultMessage: 'Reply',
+    });
 
-        const tooltip = (
-            <Tooltip
-                id='comment-icon-tooltip'
-                className='hidden-xs'
-            >
-                <FormattedMessage
-                    id='post_info.comment_icon.tooltip.reply'
-                    defaultMessage='Reply'
-                />
-            </Tooltip>
-        );
+    return (
+        <WithTooltip
+            title={replyTitle}
+        >
+            <IconButton
+                id={`${location}_commentIcon_${postId}`}
+                size='small'
+                padding='compact'
+                className={classNames(
+                    'post-menu__item',
+                    {
+                        'post-menu__item--wide': commentCount > 0 || Boolean(searchStyle),
+                        'post-menu__item--show': commentCount > 0,
+                    },
+                    searchStyle,
+                    extraClass,
+                )}
+                icon={<Icon glyph={<ReplyOutlineIcon/>}/>}
+                count={commentCount > 0 ? commentCount : undefined}
+                aria-label={replyTitle.toLowerCase()}
+                onClick={handleCommentClick}
+            />
+        </WithTooltip>
+    );
+};
 
-        return (
-            <OverlayTrigger
-                delayShow={500}
-                placement='top'
-                overlay={tooltip}
-            >
-                <button
-                    id={`${this.props.location}_commentIcon_${this.props.postId}`}
-                    aria-label={localizeMessage('post_info.comment_icon.tooltip.reply', 'Reply').toLowerCase()}
-                    className={iconStyle + ' ' + this.props.extraClass}
-                    onClick={this.props.handleCommentClick}
-                >
-                    <span className='d-flex align-items-center'>
-                        <ReplyIcon className='icon icon--small'/>
-                        {commentCountSpan}
-                    </span>
-                </button>
-            </OverlayTrigger>
-        );
-    }
-}
-
+export default CommentIcon;

@@ -120,10 +120,10 @@ func (e *ErrNotFound) Wrap(err error) *ErrNotFound {
 
 func (e *ErrNotFound) Error() string {
 	if e.wrapped != nil {
-		return fmt.Sprintf("resource: %s id: %s error: %s", e.resource, e.ID, e.wrapped)
+		return fmt.Sprintf("resource %q not found, id: %s, error: %s", e.resource, e.ID, e.wrapped)
 	}
 
-	return fmt.Sprintf("resource: %s id: %s", e.resource, e.ID)
+	return fmt.Sprintf("resource %q not found, id: %s", e.resource, e.ID)
 }
 
 // IsErrNotFound allows easy type assertion without adding store as a dependency.
@@ -182,4 +182,24 @@ func (e *ErrUniqueConstraint) Error() string {
 		tmpl = "unique constraint: %s"
 	}
 	return fmt.Sprintf(tmpl, strings.Join(e.Columns, ","))
+}
+
+func IsErrNotFound(err error) bool {
+	_, ok := err.(*ErrNotFound)
+	return ok
+}
+
+// ErrResultsMismatch indicates that a batch lookup returned fewer results
+// than the number of IDs requested, meaning some IDs were not found.
+type ErrResultsMismatch struct {
+	Got      int
+	Expected int
+}
+
+func NewErrResultsMismatch(got, expected int) *ErrResultsMismatch {
+	return &ErrResultsMismatch{Got: got, Expected: expected}
+}
+
+func (e *ErrResultsMismatch) Error() string {
+	return fmt.Sprintf("results mismatch: got %d results of the %d ids passed", e.Got, e.Expected)
 }

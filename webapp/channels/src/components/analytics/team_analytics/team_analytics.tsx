@@ -1,7 +1,7 @@
 // Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
 
-import React from 'react';
+import React, {type JSX} from 'react';
 import type {MessageDescriptor} from 'react-intl';
 import {FormattedDate, FormattedMessage, defineMessages} from 'react-intl';
 
@@ -21,7 +21,6 @@ import {messages as activatedUsersCardsMessages} from 'components/analytics/acti
 import LineChart from 'components/analytics/line_chart';
 import StatisticCount from 'components/analytics/statistic_count';
 import TableChart from 'components/analytics/table_chart';
-import TrueUpReview from 'components/analytics/true_up_review';
 import ExternalLink from 'components/external_link';
 import LoadingScreen from 'components/loading_screen';
 import AdminHeader from 'components/widgets/admin_console/admin_header';
@@ -92,7 +91,7 @@ const messages = defineMessages({
     newlyCreated: {id: 'analytics.team.newlyCreated', defaultMessage: 'Newly Created Users'},
 });
 
-export const searchableStrings: Array<string|MessageDescriptor|[MessageDescriptor, {[key: string]: any}]> = [
+export const searchableStrings: Array<string | MessageDescriptor | [MessageDescriptor, {[key: string]: any}]> = [
     [messages.title, {team: ''}],
     messages.info,
     messages.totalPosts,
@@ -195,7 +194,10 @@ export default class TeamAnalytics extends React.PureComponent<Props, State> {
         const userCountsWithPostsDay = formatUsersWithPostsPerDayData(labels, stats[StatTypes.USERS_WITH_POSTS_PER_DAY]);
 
         let banner = (
-            <div className='banner'>
+            <div
+                data-testid='team-statistics-banner'
+                className='banner'
+            >
                 <div className='banner__content'>
                     <FormattedMessage {...messages.info}/>
                 </div>
@@ -207,7 +209,10 @@ export default class TeamAnalytics extends React.PureComponent<Props, State> {
         let userActiveGraph;
         if (stats[StatTypes.TOTAL_POSTS] === -1) {
             banner = (
-                <div className='banner'>
+                <div
+                    data-testid='team-statistics-banner'
+                    className='banner'
+                >
                     <div className='banner__content'>
                         <FormattedMessage
                             id='analytics.system.infoAndSkippedIntensiveQueries1'
@@ -234,6 +239,7 @@ export default class TeamAnalytics extends React.PureComponent<Props, State> {
         } else {
             totalPostsCount = (
                 <StatisticCount
+                    id='totalPosts'
                     title={<FormattedMessage {...messages.totalPosts}/>}
                     icon='fa-comment'
                     count={this.getStatValue(stats[StatTypes.TOTAL_POSTS])}
@@ -294,7 +300,10 @@ export default class TeamAnalytics extends React.PureComponent<Props, State> {
         return (
             <div className='wrapper--fixed team_statistics'>
                 <AdminHeader>
-                    <div className='team-statistics__header'>
+                    <div
+                        data-testid='team-statistics-header'
+                        className='team-statistics__header'
+                    >
                         <FormattedMessage
                             {...messages.title}
                             values={{
@@ -316,20 +325,24 @@ export default class TeamAnalytics extends React.PureComponent<Props, State> {
 
                 <div className='admin-console__wrapper'>
                     <div className='admin-console__content'>
-                        <TrueUpReview/>
                         {banner}
-                        <div className='grid-statistics'>
+                        <div
+                            data-testid='grid-statistics'
+                            className='grid-statistics'
+                        >
                             <ActivatedUserCard
                                 activatedUsers={this.getStatValue(stats[StatTypes.TOTAL_USERS])}
                                 seatsPurchased={parseInt(this.props.license.Users, 10)}
                                 isCloud={this.props.license.Cloud === 'true'}
                             />
                             <StatisticCount
+                                id='publicChannels'
                                 title={<FormattedMessage {...messages.publicChannels}/>}
                                 icon='fa-globe'
                                 count={this.getStatValue(stats[StatTypes.TOTAL_PUBLIC_CHANNELS])}
                             />
                             <StatisticCount
+                                id='privateChannels'
                                 title={<FormattedMessage {...messages.privateGroups}/>}
                                 icon='fa-lock'
                                 count={this.getStatValue(stats[StatTypes.TOTAL_PRIVATE_GROUPS])}
@@ -340,10 +353,12 @@ export default class TeamAnalytics extends React.PureComponent<Props, State> {
                         {userActiveGraph}
                         <div className='row'>
                             <TableChart
+                                id='recentActiveUsers'
                                 title={<FormattedMessage {...messages.recentUsers}/>}
                                 data={recentActiveUsers}
                             />
                             <TableChart
+                                id='newlyCreatedUsers'
                                 title={<FormattedMessage {...messages.newlyCreated}/>}
                                 data={newlyCreatedUsers}
                             />

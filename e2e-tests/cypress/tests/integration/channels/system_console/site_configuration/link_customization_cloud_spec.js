@@ -7,11 +7,10 @@
 // - Use element ID when selecting an element. Create one if none.
 // ***************************************************************
 
-// Stage: @prod
 // Group: @channels @system_console @enterprise @cloud_only
 
-import * as TIMEOUTS from '../../../../fixtures/timeouts';
-import {SupportSettings} from '../../../../utils/constants';
+import * as TIMEOUTS from '@/fixtures/timeouts';
+import {SupportSettings} from '@/utils/constants';
 
 describe('SupportSettings', () => {
     before(() => {
@@ -28,14 +27,15 @@ describe('SupportSettings', () => {
             // * Verify links changed
             [
                 {text: 'Ask the community', link: SupportSettings.ASK_COMMUNITY_LINK},
-                {text: 'Help resources', link: SupportSettings.HELP_LINK},
-                {text: 'Report a problem', link: SupportSettings.REPORT_A_PROBLEM_LINK},
+                {text: 'Mattermost documentation', link: SupportSettings.MATTERMOST_DOCUMENTATION},
+                {text: 'Report a problem', link: 'mailto:reportaproblem@mattermost.com'},
                 {text: 'Keyboard shortcuts'},
             ].forEach(({text, link}) => {
                 if (link) {
                     cy.findByText(text).
                         parent().
-                        should('have.attr', 'href', link);
+                        should('have.attr', 'href').
+                        and('contain', link);
                 } else {
                     cy.findByText(text);
                 }
@@ -58,7 +58,8 @@ describe('SupportSettings', () => {
         // * Verify that links are correct at login page
         guides.forEach((guide) => {
             cy.findByText(guide.text).
-                should('have.attr', 'href', guide.link);
+                should('have.attr', 'href').
+                and('contain', guide.link);
         });
 
         // # Visit signup page
@@ -68,7 +69,8 @@ describe('SupportSettings', () => {
         // * Verify that links are correct at signup page
         guides.forEach((guide) => {
             cy.findByText(guide.text).
-                should('have.attr', 'href', guide.link);
+                should('have.attr', 'href').
+                and('contain', guide.link);
         });
     });
 });
